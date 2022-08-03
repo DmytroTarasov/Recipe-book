@@ -7,7 +7,6 @@ import { Recipe } from './recipe.model';
     providedIn: 'root'
 })
 export class RecipeService {
-    recipeSelected = new EventEmitter<Recipe>();
 
     constructor(private shoppingListService: ShoppingListService) {}
 
