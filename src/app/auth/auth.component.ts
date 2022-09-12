@@ -1,10 +1,17 @@
-import { Component, ComponentFactoryResolver, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+    Component,
+    ComponentFactoryResolver,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
 import { NgForm } from '@angular/forms';
-import { Router } from '@angular/router';
-import { Observable, Subscription } from 'rxjs';
-import { AuthResponseData, AuthService } from './auth.service';
+import { Subscription } from 'rxjs';
 import { AlertComponent } from '../shared/alert/alert.component';
 import { PlaceholderDirective } from '../shared/placeholder.directive';
+import * as fromApp from '../store/app.reducer';
+import { Store } from '@ngrx/store';
+import * as AuthActions from '../auth/store/auth.actions';
 
 @Component({
     selector: 'app-auth',
@@ -16,17 +23,26 @@ export class AuthComponent implements OnInit, OnDestroy {
     isLoading = false;
     error: string = null;
     // ViewChild here will find the place in the template (DOM) where the PlaceholderDirective is used for the first time
-    @ViewChild(PlaceholderDirective, { static: false }) alertHost: PlaceholderDirective; 
+    @ViewChild(PlaceholderDirective, { static: false })
+    alertHost: PlaceholderDirective;
 
     private closeSub: Subscription;
+    private storeSub: Subscription;
 
     constructor(
-        private authService: AuthService,
-        private router: Router,
-        private componentFactoryResolver: ComponentFactoryResolver
+        private componentFactoryResolver: ComponentFactoryResolver,
+        private store: Store<fromApp.AppState>
     ) { }
 
-    ngOnInit(): void { }
+    ngOnInit(): void {
+        this.storeSub = this.store.select('auth').subscribe(authState => {
+            this.isLoading = authState.loading;
+            this.error = authState.authError;
+            if (this.error) {
+                this.showErrorAlert(this.error);
+            }
+        });
+    }
 
     onSwitchMode() {
         this.isLoginMode = !this.isLoginMode;
@@ -39,48 +55,22 @@ export class AuthComponent implements OnInit, OnDestroy {
         const email = authForm.value.email;
         const password = authForm.value.password;
 
-        this.isLoading = true;
-
-        let authObs: Observable<AuthResponseData>;
-
         if (this.isLoginMode) {
-            authObs = this.authService.login(email, password);
+            this.store.dispatch(new AuthActions.LoginStart({ email, password }));
         } else {
-            authObs = this.authService.signup(email, password);
+            this.store.dispatch(new AuthActions.SignupStart({ email, password }));
         }
-
-        // deprecated variant
-
-        // authObs.subscribe(responseData => {
-        //     console.log(responseData);
-        //     this.isLoading = false;
-        // }, errorMessage => {
-        //     this.error = errorMessage;
-        //     this.isLoading = false;
-        // });
-
-        authObs.subscribe({
-            next: (responseData) => {
-                console.log(responseData);
-                this.isLoading = false;
-                this.router.navigate(['/recipes']);
-            },
-            error: (errorMessage) => {
-                this.error = errorMessage;
-                this.showErrorAlert(errorMessage);
-                this.isLoading = false;
-            },
-        });
 
         authForm.reset();
     }
 
     onHandleError() {
-        this.error = null;
+        this.store.dispatch(new AuthActions.ClearError());
     }
 
     private showErrorAlert(message: string) {
-        const alertCmpFactory = this.componentFactoryResolver.resolveComponentFactory(AlertComponent);
+        const alertCmpFactory =
+            this.componentFactoryResolver.resolveComponentFactory(AlertComponent);
         const hostViewContainerRef = this.alertHost.viewContainerRef; // 'alertHost' is a custom directive - PlaceholderDirective which we have created manually. This directive also exposes the viewContainerRef property (publicly defined in the constructor)
 
         hostViewContainerRef.clear(); // clear all content that was rendered in that hostViewContainerRef before
@@ -95,10 +85,13 @@ export class AuthComponent implements OnInit, OnDestroy {
         });
     }
 
-    // here, we call unsubscribe() to avoid memory leaks if we managed somehow leave the AuthComponent when the AlertComponent was shown (but this is actually impossible here in our app) 
+    // here, we call unsubscribe() to avoid memory leaks if we managed somehow leave the AuthComponent when the AlertComponent was shown (but this is actually impossible here in our app)
     ngOnDestroy() {
         if (this.closeSub) {
             this.closeSub.unsubscribe();
+        }
+        if (this.storeSub) {
+            this.storeSub.unsubscribe();
         }
     }
 }

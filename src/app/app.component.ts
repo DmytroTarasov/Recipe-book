@@ -1,5 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import { Store } from '@ngrx/store';
 import { AuthService } from './auth/auth.service';
+import * as fromApp from './store/app.reducer';
+import * as AuthActions from './auth/store/auth.actions';
 
 @Component({
     selector: 'app-root',
@@ -8,10 +11,10 @@ import { AuthService } from './auth/auth.service';
 })
 
 export class AppComponent implements OnInit {
-    constructor(private authService: AuthService) {}
+    constructor(private authService: AuthService, private store: Store<fromApp.AppState>) {}
 
     ngOnInit() {
-        // try to get the userData from the localStorage and authenticate the user automatically whenever the page reloads
-        this.authService.autoLogin();   
+        // try to authenticate the user automatically whenever the page reloads
+        this.store.dispatch(new AuthActions.AutoLogin());
     }
 }

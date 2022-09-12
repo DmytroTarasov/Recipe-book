@@ -1,3 +1,4 @@
 export const environment = {
-  production: true
+    production: true,
+    firebaseAPIKey: 'AIzaSyDUJwNtp4jQXqcsGHne6396J2bpMcOGvvQ'
 };
